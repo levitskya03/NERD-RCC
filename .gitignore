@@ -14,3 +14,5 @@ trained_lagr/trained_Sawbridge
 /.ipynb_checkpoints
 **/__pycache__
 plotRDcurves.ipynb
+wandb/
+augmented_mnist/

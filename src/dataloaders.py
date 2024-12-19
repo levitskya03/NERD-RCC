@@ -12,6 +12,7 @@ class MNISTDataModule(LightningDataModule):
     def __init__(self, batch_size):
         super().__init__()
         self.batch_size = batch_size
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # self.train=train
 
     def train_dataloader(self):
@@ -21,7 +22,7 @@ class MNISTDataModule(LightningDataModule):
             # transforms.Normalize((0.5), (0.5))
         ])
         dataset = MNIST('./data', train=True, download=True, transform=transform)
-        loader = DataLoader(dataset, batch_size=self.batch_size, num_workers=2, pin_memory=True, persistent_workers=True, shuffle=True)
+        loader = DataLoader(dataset, batch_size=self.batch_size, num_workers=1, pin_memory=self.device.type == 'cuda', persistent_workers=True, shuffle=True)
         return loader
     
     def test_dataloader(self):
@@ -31,7 +32,7 @@ class MNISTDataModule(LightningDataModule):
             # transforms.Normalize((0.5), (0.5))
         ])
         dataset = MNIST('./data', train=False, download=True, transform=transform)
-        loader = DataLoader(dataset, batch_size=self.batch_size, num_workers=2, pin_memory=True, persistent_workers=True)
+        loader = DataLoader(dataset, batch_size=self.batch_size, num_workers=1, pin_memory=self.device.type == 'cuda', persistent_workers=True)
         return loader
 
 class SVHNDataModule(LightningDataModule):
@@ -39,6 +40,7 @@ class SVHNDataModule(LightningDataModule):
         super().__init__()
         self.batch_size = batch_size
         # self.train=train
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         transform = transforms.Compose([
             transforms.ToTensor(),
             # transforms.Normalize((0.5), (0.5))
@@ -46,14 +48,15 @@ class SVHNDataModule(LightningDataModule):
         dset = SVHN(root='./data', download=True, transform=transform)
         torch.manual_seed(0)
         train_len = int(0.7*len(dset))
+        
         self.train_dset, self.test_dset = torch.utils.data.random_split(dset, [train_len, len(dset)-train_len])
 
     def train_dataloader(self):
-        loader = DataLoader(self.train_dset, batch_size=self.batch_size, num_workers=2, pin_memory=True, persistent_workers=True, shuffle=True)
+        loader = DataLoader(self.train_dset, batch_size=self.batch_size, num_workers=1, pin_memory=self.device.type == 'cuda', persistent_workers=True, shuffle=True)
         return loader
     
     def test_dataloader(self):
-        loader = DataLoader(self.test_dset, batch_size=self.batch_size, num_workers=2, pin_memory=True, persistent_workers=True)
+        loader = DataLoader(self.test_dset, batch_size=self.batch_size, num_workers=1, pin_memory=self.device.type == 'cuda', persistent_workers=True)
         return loader
     
 class FMNISTDataModule(LightningDataModule):
@@ -67,7 +70,7 @@ class FMNISTDataModule(LightningDataModule):
             transforms.ToTensor(),
         ])
         dataset = FashionMNIST('./data', train=True, download=True, transform=transform)
-        loader = DataLoader(dataset, batch_size=self.batch_size, num_workers=2, pin_memory=True, persistent_workers=True, shuffle=True)
+        loader = DataLoader(dataset, batch_size=self.batch_size, num_workers=1, pin_memory=self.device.type == 'cuda', persistent_workers=True, shuffle=True)
         return loader
     
 class GaussianDataset(Dataset):
@@ -107,7 +110,7 @@ class GaussianDataModule(LightningDataModule):
     def train_dataloader(self):
         trainset = GaussianDataset(n_samples=50000, m=self.m, r=self.r)
         train_loader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size,
-                                              shuffle=True, num_workers=2, pin_memory=True)
+                                              shuffle=True, num_workers=1, pin_memory=self.device.type == 'cuda')
         return train_loader
 
 class Sawbridge(LightningDataModule):
@@ -126,10 +129,10 @@ class Sawbridge(LightningDataModule):
         self.train_dataset, self.test_dataset = torch.utils.data.random_split(dataset, [len_keep, len(dataset) - len_keep])
 
     def train_dataloader(self):
-        loader = DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=2, pin_memory=True, persistent_workers=True, shuffle=True, drop_last=True)
+        loader = DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=1, pin_memory=self.device.type == 'cuda', persistent_workers=True, shuffle=True, drop_last=True)
         return loader
 
     def val_dataloader(self):
-        loader = DataLoader(self.test_dataset, batch_size=10000, num_workers=2, pin_memory=True, persistent_workers=True, drop_last=True)
+        loader = DataLoader(self.test_dataset, batch_size=10000, num_workers=1, pin_memory=self.device.type == 'cuda', persistent_workers=True, drop_last=True)
         return loader
 

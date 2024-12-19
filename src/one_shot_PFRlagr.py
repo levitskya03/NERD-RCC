@@ -164,7 +164,7 @@ def calc_RD_curve(lmbdas, loader, N=1000, data_name="MNIST"):
             model = GenRDlagr(D=lam, data_name=data_name, generator=generator)
             model.latent_dim = 100
         # model = GenRDlagr(lmbda=lam)
-        checkpoint = torch.load(f'trained_lagr/trained_{data_name}_L2/NERD_{data_name}_lmbda{lam:.3f}.pt')
+        checkpoint = torch.load(f'trained_models/trained_lagr/trained_{data_name}_L2/NERD_{data_name}_lmbda{lam:.3f}.pt')
         model.load_state_dict(checkpoint)
         model.to(device)
         r, d, _ = calc_RDlagr(loader, model, lam)

@@ -29,10 +29,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-    if not os.path.exists(f'trained_lagr/figures_{args.data_name}'):
-        os.mkdir(f'trained_lagr/figures_{args.data_name}')
-    if not os.path.exists(f'trained_lagr/trained_{args.data_name}'):
-        os.mkdir(f'trained_lagr/trained_{args.data_name}')
+    if not os.path.exists(f'trained_models/trained_lagr/figures_{args.data_name}'):
+        os.mkdir(f'trained_models/trained_lagr/figures_{args.data_name}')
+    if not os.path.exists(f'trained_models/trained_lagr/trained_{args.data_name}'):
+        os.mkdir(f'trained_models/trained_lagr/trained_{args.data_name}')
         
     if args.data_name == "MNIST":
         dm = dataloaders.MNISTDataModule(args.batch_size)

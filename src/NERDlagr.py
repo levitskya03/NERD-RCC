@@ -8,6 +8,7 @@ import os
 
 from argparse import ArgumentParser, Namespace
 from collections import OrderedDict
+from pytorch_lightning.utilities.exceptions import MisconfigurationException
 
 import numpy as np
 import torch
@@ -43,7 +44,7 @@ class GenRD(LightningModule):
                  generator=None,
                  **kwargs):
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=['generator'])
         self.eps = 1e-20
 
         self.latent_dim = latent_dim
@@ -62,7 +63,7 @@ class GenRD(LightningModule):
         
         self.fname = data_name
         # print(self.D)
-        self.figdir=f"trained_lagr/figures_{self.fname}/lmbda{self.lmbda_dual:2f}"
+        self.figdir=f"trained_models/trained_lagr/figures_{self.fname}/lmbda{self.lmbda_dual:2f}"
         if not os.path.exists(self.figdir):
             os.mkdir(self.figdir)
             # os.mkdir('trained/trained_{model.fname}')
@@ -170,7 +171,7 @@ class GenRD(LightningModule):
         return opt_g
 
 
-    def on_epoch_end(self):
+    def on_train__epoch_end(self):
         z = self.validation_z.to(self.device)
 
         # log sampled images
@@ -193,6 +194,48 @@ class GenRD(LightningModule):
 #             plt.ylabel('Loss')
 #             plt.savefig(f'trained/{self.figdir}/training_loss')
 
+    def calculate_rate(self, dataloader):
+        """
+        Calculate the rate component for the rate-distortion tradeoff.
+        This involves summing over the mutual information terms for batches.
+        """
+        self.eval()  # Set model to evaluation mode
+        total_rate = 0.0
+        with torch.no_grad():
+            for x, _ in dataloader:
+                x = x.to(self.device)
+                z = torch.randn(x.size(0), self.latent_dim, device=self.device)
+                y = self.generator(z)
+
+                # Compute distance matrix and probabilities
+                dist_mat = self._squared_distances(x, y, p=2)
+                log_mu_x = torch.logsumexp(self.lmbda_dual * dist_mat, dim=1) - np.log(dist_mat.shape[1])
+                rate = -torch.mean(log_mu_x) / np.log(2)
+                total_rate += rate.item()
+
+        return total_rate / len(dataloader)
+
+    def calculate_distortion(self, dataloader):
+        """
+        Calculate the distortion component for the rate-distortion tradeoff.
+        """
+        self.eval()  # Set model to evaluation mode
+        total_distortion = 0.0
+        with torch.no_grad():
+            for x, _ in dataloader:
+                x = x.to(self.device)
+                z = torch.randn(x.size(0), self.latent_dim, device=self.device)
+                y = self.generator(z)
+
+                # Compute distance matrix and distortion
+                dist_mat = self._squared_distances(x, y, p=2)
+                log_mu_x = torch.logsumexp(self.lmbda_dual * dist_mat, dim=1) - np.log(dist_mat.shape[1])
+                log_f_xy = torch.log(dist_mat) + self.lmbda_dual * dist_mat - log_mu_x[:, None]
+                distortion = torch.mean(torch.exp(log_f_xy))
+                total_distortion += distortion.item()
+
+        return total_distortion / len(dataloader)
+
 
 def train_save(args, lmbda, generator, datamodule) -> None:
     # ------------------------
@@ -210,21 +253,25 @@ def train_save(args, lmbda, generator, datamodule) -> None:
                  generator=generator)
     if args.init_gan==1:
         # initialize with trained gan
-        ckpt = torch.load(f'trained_gan/wgan_gp_{args.data_name}.ckpt')
+        ckpt = torch.load(f'trained_models/trained_gan/wgan_gp_{args.data_name}.ckpt')
         from wgan_gp import WGANGP
         model_gan = WGANGP(latent_dim=128, dnn_size=32, img_size=generator.img_size)
         model_gan.load_state_dict(ckpt)
         model.generator=model_gan.generator
     
-    trainer = Trainer(accelerator='gpu',
-                      devices=args.gpus[0], 
-                      strategy='ddp',
-                      max_epochs=args.epochs
-                     )
+    try:
+        trainer = Trainer(accelerator='gpu', 
+                            devices=1,
+                            max_epochs=100)
+    except MisconfigurationException:
+        print("GPU not found, falling back to CPU.")
+        trainer = Trainer(accelerator='cpu', 
+                        max_epochs=100)
     
+
     trainer.fit(model, datamodule)
     
-    torch.save(model.state_dict(), f"trained_lagr/trained_{model.fname}/NERD_{model.fname}_lmbda{lmbda:.3f}.pt")
+    torch.save(model.state_dict(), f"trained_models/trained_lagr/trained_{model.fname}/NERD_{model.fname}_lmbda{lmbda:.3f}.pt")
 
     
     

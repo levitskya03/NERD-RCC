@@ -161,7 +161,7 @@ class WGANGP(LightningModule):
         if self.current_epoch % 10 == 0:
             plt.figure()
             plt.imshow(grid.detach().cpu().permute(1, 2, 0))
-            plt.savefig(f'trained/figures_{self.data_name}/epoch{self.current_epoch}')
+            plt.savefig(f'trained_models/figures_{self.data_name}/epoch{self.current_epoch}')
 
 
 def main(args: Namespace) -> None:
@@ -180,8 +180,8 @@ def main(args: Namespace) -> None:
     
     # print(args.init)
     if args.init==1:
-        ckpt = torch.load(f'trained/trained_{args.data_name}/wgan_gp_{args.data_name}.ckpt')
-        model.load_state_dict(ckpt)
+        ckpt = torch.load(f'trained_models/trained_{args.data_name}/wgan_gp_{args.data_name}.ckpt')
+        model.load_state_dict(ckpt, map_location=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
     
 #     checkpoint_callback = ModelCheckpoint(every_n_epochs=1, monitor='d_loss')
     # ------------------------
@@ -189,8 +189,19 @@ def main(args: Namespace) -> None:
     # ------------------------
     # If use distubuted training  PyTorch recommends to use DistributedDataParallel.
     # See: https://pytorch.org/docs/stable/nn.html#torch.nn.DataParallel
+    if torch.cuda.is_available():
+        print("Using GPU for training.")
+        accelerator = "gpu"
+        devices = 1  # Number of GPUs to use
+    else:
+        print("Using CPU for training.")
+        accelerator = "cpu"
+        devices = None
+
     trainer = Trainer(gpus=args.gpus[0], 
                       max_epochs=args.epochs,
+                      accelerator=accelerator,
+                      devices=devices
 #                      callbacks=[checkpoint_callback]
                      )
 
@@ -199,7 +210,7 @@ def main(args: Namespace) -> None:
     # ------------------------
     
     trainer.fit(model, dm)
-    torch.save(model.state_dict(), f"trained/trained_{args.data_name}/wgan_gp_{args.data_name}.ckpt")
+    torch.save(model.state_dict(), f"trained_models/trained_{args.data_name}/wgan_gp_{args.data_name}.ckpt")
 
 
 if __name__ == '__main__':
@@ -221,10 +232,10 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
-    if not os.path.exists(f'trained/figures_{args.data_name}'):
-        os.mkdir(f'trained/figures_{args.data_name}')
-    if not os.path.exists(f'trained/trained_{args.data_name}'):
-        os.mkdir(f'trained/trained_{args.data_name}')
+    if not os.path.exists(f'trained_models/figures_{args.data_name}'):
+        os.mkdir(f'trained_models/figures_{args.data_name}')
+    if not os.path.exists(f'trained_models/trained_{args.data_name}'):
+        os.mkdir(f'trained_models/trained_{args.data_name}')
 
     main(args)
 
